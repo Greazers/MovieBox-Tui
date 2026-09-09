@@ -232,7 +232,7 @@ impl App {
                         .ok();
                     return;
                 };
-
+/*
                 let mut cmd = tokio::process::Command::new(ytdlp_bin);
                 for (k, v) in &headers {
                     if k.eq_ignore_ascii_case("user-agent") {
@@ -249,6 +249,43 @@ impl App {
                     .arg(&destination)
                     .arg("--force-overwrites")
                     .arg(&link);
+*/
+            	let Some(ffmpeg_bin) = crate::player::find_in_path("ffmpeg") else {
+                    sender
+                        .send(Action::DownloadFailed(
+                            "MovieBox DASH streams require ffmpeg for merging video and audio."
+                                .to_string(),
+                        ))
+                        .ok();
+                    return;
+                };
+
+                log::info!("MovieBox DASH: yt-dlp = {ytdlp_bin}");
+                log::info!("MovieBox DASH: ffmpeg = {ffmpeg_bin}");
+
+                let mut cmd = tokio::process::Command::new(&ytdlp_bin);
+
+                for (k, v) in &headers {
+                    if k.eq_ignore_ascii_case("user-agent") {
+                        cmd.arg("--user-agent").arg(v);
+                    } else {
+                        cmd.arg("--add-header").arg(format!("{k}: {v}"));
+                    }
+                }
+
+                cmd.arg("-f")
+                    .arg("bestvideo+bestaudio/best")
+                    .arg("--merge-output-format")
+                    .arg("mp4")
+                    .arg("--ffmpeg-location")
+                    .arg(&ffmpeg_bin)
+                    .arg("--newline")
+                    .arg("--part")
+                    .arg("-o")
+                    .arg(&destination)
+                    .arg("--force-overwrites")
+                    .arg(&link);	
+
                 #[cfg(target_os = "windows")]
                 {
                     cmd.creation_flags(crate::player::CREATE_NO_WINDOW);
